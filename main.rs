@@ -1,16 +1,16 @@
 use std::io::prelude::*;
-use std::io::BufReader;
+use std::io::{BufReader, Cursor};
 use std::fs::File;
-use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::SystemTime;
+use std::time::{SystemTime, Duration};
 use byteorder::{BigEndian, ReadBytesExt};
 use enigo::*;
 
-static MOVE_MULTIPLIER: f64 = 20.;
-static SCROLL_MUTLIPLIER: f64 = 1.5;
+static MOVE_DIVISOR: f64 = 1638.4; // = (x/32768)*20 // smaller --> faster
 static CLAMP_THRESHOLD: f64 = 0.04;
+
+static SCROLL_MUTLIPLIER: f64 = 1.5;
 
 struct State {
     running: bool,
@@ -43,14 +43,13 @@ fn get_gamepad_handler() -> String {
 }
 
 fn main() -> std::io::Result<()> {
-    
-
     let mut file_location = "/dev/input/".to_owned();
     let eventfile_name = get_gamepad_handler();
     file_location.push_str(&eventfile_name);
     println!("{}", file_location);
     let f = File::open(file_location)?;
     let mut reader = BufReader::new(f);
+
 
     let state = Arc::new(Mutex::new(State {
         running: true,
@@ -62,8 +61,8 @@ fn main() -> std::io::Result<()> {
         rz: 0,
     }));
 
-    let poll_state = Arc::clone(&state);
 
+    let poll_state = Arc::clone(&state);
     let poll = thread::spawn(move || {
         loop {
             // read from file
@@ -104,14 +103,10 @@ fn main() -> std::io::Result<()> {
                     state.y = value;
                 }
                 3 => { // ABS_RX
-                    let mut value = (value as f64)/32768.; // todo: move logic
-                    if value.abs() < CLAMP_THRESHOLD { // prevent mouse movent despite unmoved joystic
-                        value = 0.;
-                    }
-                    state.rx = value;
+                    state.rx = value as f64;
                 }
                 4 => { // ABS_RY
-                    let mut value = (value as f64)/32768.;  // todo: move logic
+                    let mut value = (value as f64)/MOVE_DIVISOR; // todo: move logic
                     if value.abs() < CLAMP_THRESHOLD { // prevent mouse movent despite unmoved joystic
                         value = 0.;
                     }
@@ -127,7 +122,7 @@ fn main() -> std::io::Result<()> {
                     state.running = false;
                 }
                 _ => {
-                    println!("{}", code)
+                    println!("unsupported button: {}", code)
                 }
             }
             if !state.running { 
@@ -136,8 +131,9 @@ fn main() -> std::io::Result<()> {
         }
     });
 
+
     let update_state = Arc::clone(&state);
-    let update = thread::spawn(move ||{
+    let update = thread::spawn(move || {
         let mut last_ex = SystemTime::now();
         let mut enigo = Enigo::new();
         
@@ -151,8 +147,12 @@ fn main() -> std::io::Result<()> {
                 }
 
                 // move mouse
-                enigo.mouse_move_relative((state.rx*MOVE_MULTIPLIER) as i32, 0);
-                enigo.mouse_move_relative(0, (state.ry*MOVE_MULTIPLIER) as i32);
+                let mut rx = (state.rx as f64)/MOVE_DIVISOR;  // todo: move logic
+                if rx.abs() < CLAMP_THRESHOLD { // prevent mouse movent despite unmoved joystic
+                    rx = 0.;
+                }
+                enigo.mouse_move_relative((rx) as i32, 0);
+                enigo.mouse_move_relative(0, (state.ry) as i32);
 
                 // mouse buttons
                 if state.rz > 128 {
@@ -169,15 +169,15 @@ fn main() -> std::io::Result<()> {
                 // scroll
                 let y = (state.y as f64)/32768.;
                 enigo.mouse_scroll_y((y*SCROLL_MUTLIPLIER) as i32);
+            } else {
+                thread::sleep(Duration::from_millis(1));
             }
         }
     });
 
+
     poll.join().unwrap();
     update.join().unwrap();
-
-
-
         
     Ok(())
 }
