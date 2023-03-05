@@ -2,10 +2,9 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::fs::File;
 use std::io::Cursor;
-use std::ops::Mul;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use byteorder::{BigEndian, ReadBytesExt};
 use enigo::*;
 
@@ -150,7 +149,7 @@ fn main() -> std::io::Result<()> {
                 if !state.running { 
                     break;
                 }
-                
+
                 // move mouse
                 enigo.mouse_move_relative((state.rx*MOVE_MULTIPLIER) as i32, 0);
                 enigo.mouse_move_relative(0, (state.ry*MOVE_MULTIPLIER) as i32);
