@@ -19,7 +19,9 @@ struct State {
     rx: f64,
     ry: f64,
     z: i16,
-    rz: i16
+    rz: i16,
+    tr: bool,
+    tl: bool,
 }
 
 fn get_gamepad_handler() -> String {
@@ -42,6 +44,7 @@ fn get_gamepad_handler() -> String {
     y.clone()
 }
 
+
 fn main() -> std::io::Result<()> {
     let mut file_location = "/dev/input/".to_owned();
     let eventfile_name = get_gamepad_handler();
@@ -59,11 +62,14 @@ fn main() -> std::io::Result<()> {
         ry: 0.,
         z: 0,
         rz: 0,
+        tr: false,
+        tl: false,
     }));
 
 
     let poll_state = Arc::clone(&state);
     let poll = thread::spawn(move || {
+        let mut enigo = Enigo::new();
         loop {
             // read from file
             let mut buf = vec![];
@@ -118,11 +124,31 @@ fn main() -> std::io::Result<()> {
                 5 => { // ABS_RZ
                     state.rz = buf[20].into(); 
                 }
+                16 => {
+                    if buf[20] == 1 {
+                        enigo.key_click(Key::RightArrow);
+                    } else if buf[20] == 255 {
+                        enigo.key_click(Key::LeftArrow);
+                    }
+                }
+                17 => {
+                    if buf[20] == 1 {
+                        enigo.key_click(Key::DownArrow);
+                    } else if buf[20] == 255 {
+                        enigo.key_click(Key::UpArrow);
+                    }
+                }
+                310 => { // BTN_TL
+                    state.tl = buf[20] == 1; // 1 or 0
+                }
+                311 => { // BTN_TR
+                    state.tr = buf[20] == 1; // 1 or 0
+                }   
                 314 => { // BTN_SELECT
                     state.running = false;
                 }
                 _ => {
-                    println!("unsupported button: {}", code)
+                    println!("unsupported keycode: {}", code)
                 }
             }
             if !state.running { 
@@ -165,10 +191,32 @@ fn main() -> std::io::Result<()> {
                 } else if state.z > 0 {
                     enigo.mouse_up(MouseButton::Left);
                 }
+                // side buttons
+                /* TODO https://github.com/enigo-rs/enigo/issues/157
+                if state.tl {
+                    enigo.key_down(Key::Raw(0x38)); // back - 8
+                } else {
+                    let c = Key::Raw(0x38);
+                    enigo.key_up(c);
+                }
+                if state.tr {
+                    enigo.key_down(Key::Raw(0x38)); // MOUSE5 - 6
+                } else {
+                    enigo.key_down(Key::Raw(0x38));
+                }
+                */
 
                 // scroll
                 let y = (state.y as f64)/32768.;
                 enigo.mouse_scroll_y((y*SCROLL_MUTLIPLIER) as i32);
+
+                // arrow keys
+                /*
+                update_btn_state(&mut enigo, state.down, Key::DownArrow);
+                update_btn_state(&mut enigo, state.left, Key::LeftArrow);
+                update_btn_state(&mut enigo, state.right, Key::RightArrow);
+                update_btn_state(&mut enigo, state.up, Key::UpArrow);*/
+
             } else {
                 thread::sleep(Duration::from_millis(1));
             }
