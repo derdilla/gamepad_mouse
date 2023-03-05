@@ -9,8 +9,19 @@ use std::time::{Duration, SystemTime};
 use byteorder::{BigEndian, ReadBytesExt};
 use enigo::*;
 
-static MOVE_MULTI: f64 = 20.0;
+static MOVE_MULTIPLIER: f64 = 20.;
+static SCROLL_MUTLIPLIER: f64 = 1.5;
 static CLAMP_THRESHOLD: f64 = 0.04;
+
+struct State {
+    running: bool,
+    x: i16,
+    y: i16,
+    rx: f64,
+    ry: f64,
+    z: i16,
+    rz: i16
+}
 
 fn get_gamepad_handler() -> String {
     // 1. open device file
@@ -42,12 +53,17 @@ fn main() -> std::io::Result<()> {
     let f = File::open(file_location)?;
     let mut reader = BufReader::new(f);
 
-    
-    let last_x = Arc::new(Mutex::new(0.));
-    let last_y = Arc::new(Mutex::new(0.));
+    let state = Arc::new(Mutex::new(State {
+        running: true,
+        x: 0,
+        y: 0,
+        rx: 0.,
+        ry: 0.,
+        z: 0,
+        rz: 0,
+    }));
 
-    let x1 = Arc::clone(&last_x);
-    let y1 = Arc::clone(&last_y);
+    let poll_state = Arc::clone(&state);
 
     let poll = thread::spawn(move || {
         loop {
@@ -72,27 +88,56 @@ fn main() -> std::io::Result<()> {
                 Flat     128
             */
             let mut tmp = Cursor::new(buf[21..23].to_vec()); // is this the corect part of array?
-            let mut value = (tmp.read_i16::<BigEndian>().unwrap() as f64)/32768.;
-            if value.abs() < CLAMP_THRESHOLD { // prevent mouse movent despite unmoved joystic
-                value = 0.;
-            }
+            let value = tmp.read_i16::<BigEndian>().unwrap(); // only works for joystics
 
-            if buf[18] == 3 { // ABS_RX
-                // println!("X: {}", value);
-                let mut num = x1.lock().unwrap();
-                *num = value;
-            } else if buf[18] == 4 { // ABS_RY
-                //println!("Y: {}", value);
-                let mut num = y1.lock().unwrap();
-                *num = value;               
-            } else if buf[18] == 5 { // ABS_RZ
-                
+            let mut code:u16 = buf[19].into();
+            code *= 256;
+            code += buf[18] as u16;
+
+            //println!("{:?}", buf);
+
+            let mut state = poll_state.lock().unwrap();
+            match code {
+                0 => { // ABS_X
+                    state.x = value;
+                }
+                1 => { // ABS_Y
+                    state.y = value;
+                }
+                3 => { // ABS_RX
+                    let mut value = (value as f64)/32768.; // todo: move logic
+                    if value.abs() < CLAMP_THRESHOLD { // prevent mouse movent despite unmoved joystic
+                        value = 0.;
+                    }
+                    state.rx = value;
+                }
+                4 => { // ABS_RY
+                    let mut value = (value as f64)/32768.;  // todo: move logic
+                    if value.abs() < CLAMP_THRESHOLD { // prevent mouse movent despite unmoved joystic
+                        value = 0.;
+                    }
+                    state.ry = value;
+                }
+                2 => { // ABS_Z
+                    state.z = buf[20].into(); 
+                }
+                5 => { // ABS_RZ
+                    state.rz = buf[20].into(); 
+                }
+                314 => { // BTN_SELECT
+                    state.running = false;
+                }
+                _ => {
+                    println!("{}", code)
+                }
+            }
+            if !state.running { 
+                break;
             }
         }
     });
 
-    let x2 = Arc::clone(&last_x);
-    let y2 = Arc::clone(&last_y);
+    let update_state = Arc::clone(&state);
     let update = thread::spawn(move ||{
         let mut last_ex = SystemTime::now();
         let mut enigo = Enigo::new();
@@ -101,16 +146,31 @@ fn main() -> std::io::Result<()> {
             if last_ex.elapsed().unwrap().as_millis() > 10 {
                 last_ex = SystemTime::now();
 
-                let x = x2.lock().unwrap();
-                let y = y2.lock().unwrap();
+                let state = update_state.lock().unwrap();
+                if !state.running { 
+                    break;
+                }
+                
+                // move mouse
+                enigo.mouse_move_relative((state.rx*MOVE_MULTIPLIER) as i32, 0);
+                enigo.mouse_move_relative(0, (state.ry*MOVE_MULTIPLIER) as i32);
 
-                println!("X: {}\t|\tY: {}", *x, *y);
-                //thread::sleep(time::Duration::from_millis(10));
-                enigo.mouse_move_relative((x.clone()*MOVE_MULTI) as i32, 0);
-                enigo.mouse_move_relative(0, (y.clone()*MOVE_MULTI) as i32);
+                // mouse buttons
+                if state.rz > 128 {
+                    enigo.mouse_down(MouseButton::Right);
+                } else if state.rz > 0 {
+                    enigo.mouse_up(MouseButton::Right);
+                }
+                if state.z > 128 {
+                    enigo.mouse_down(MouseButton::Left);
+                } else if state.z > 0 {
+                    enigo.mouse_up(MouseButton::Left);
+                }
+
+                // scroll
+                let y = (state.y as f64)/32768.;
+                enigo.mouse_scroll_y((y*SCROLL_MUTLIPLIER) as i32);
             }
-
-            
         }
     });
 
