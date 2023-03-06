@@ -138,6 +138,11 @@ fn main() -> std::io::Result<()> {
                         enigo.key_click(Key::UpArrow);
                     }
                 }
+                304 => { // button A
+                    if buf[20] == 1 {
+                        enigo.key_click(Key::Return);
+                    }
+                }
                 310 => { // BTN_TL
                     state.tl = buf[20] == 1; // 1 or 0
                 }
