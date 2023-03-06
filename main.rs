@@ -147,6 +147,11 @@ fn main() -> std::io::Result<()> {
                 314 => { // BTN_SELECT
                     state.running = false;
                 }
+                315 => { // start
+                    if buf[20] == 1 {
+                        enigo.key_click(Key::Meta);
+                    }
+                }
                 _ => {
                     println!("unsupported keycode: {}", code)
                 }
@@ -210,12 +215,9 @@ fn main() -> std::io::Result<()> {
                 let y = (state.y as f64)/32768.;
                 enigo.mouse_scroll_y((y*SCROLL_MUTLIPLIER) as i32);
 
-                // arrow keys
-                /*
-                update_btn_state(&mut enigo, state.down, Key::DownArrow);
-                update_btn_state(&mut enigo, state.left, Key::LeftArrow);
-                update_btn_state(&mut enigo, state.right, Key::RightArrow);
-                update_btn_state(&mut enigo, state.up, Key::UpArrow);*/
+                // arrow keys defined directly in tetextion for performance reasons
+
+                // TODO: start button to press Meta key
 
             } else {
                 thread::sleep(Duration::from_millis(1));
