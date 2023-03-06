@@ -68,31 +68,13 @@ fn main() -> std::io::Result<()> {
 
 
     let poll_state = Arc::clone(&state);
-    let poll = thread::spawn(move || {
+    let poll = thread::spawn(move || { // some parts that logically don't belong here are here for performance resons
         let mut enigo = Enigo::new();
         loop {
             // read from file
             let mut buf = vec![];
             let mut chunk = (&mut reader).take(24);
             chunk.read_to_end(&mut buf).expect("Didn't read enough");
-
-            // parse result
-            /*
-            Event code 3 (ABS_RX)
-                Value    128
-                Min   -32768
-                Max    32767
-                Fuzz      16
-                Flat     128
-            Event code 4 (ABS_RY)
-                Value   -129
-                Min   -32768
-                Max    32767
-                Fuzz      16
-                Flat     128
-            */
-            let mut tmp = Cursor::new(buf[21..23].to_vec()); // is this the corect part of array?
-            let value = tmp.read_i16::<BigEndian>().unwrap(); // only works for joystics
 
             let mut code:u16 = buf[19].into();
             code *= 256;
@@ -103,16 +85,28 @@ fn main() -> std::io::Result<()> {
             let mut state = poll_state.lock().unwrap();
             match code {
                 0 => { // ABS_X
+                    let mut tmp = Cursor::new(buf[21..23].to_vec());
+                    let value = tmp.read_i16::<BigEndian>().unwrap();
                     state.x = value;
                 }
                 1 => { // ABS_Y
+                    let mut tmp = Cursor::new(buf[21..23].to_vec());
+                    let value = tmp.read_i16::<BigEndian>().unwrap();
                     state.y = value;
                 }
                 3 => { // ABS_RX
+                    let mut tmp = Cursor::new(buf[21..23].to_vec());
+                    let value = tmp.read_i16::<BigEndian>().unwrap();
+                    let mut value = (value as f64)/MOVE_DIVISOR;  // todo: move logic
+                    if value.abs() < CLAMP_THRESHOLD { // prevent mouse movent despite unmoved joystic
+                        value = 0.;
+                    }
                     state.rx = value as f64;
                 }
                 4 => { // ABS_RY
-                    let mut value = (value as f64)/MOVE_DIVISOR; // todo: move logic
+                    let mut tmp = Cursor::new(buf[21..23].to_vec());
+                    let value = tmp.read_i16::<BigEndian>().unwrap();
+                    let mut value = (value as f64)/MOVE_DIVISOR;
                     if value.abs() < CLAMP_THRESHOLD { // prevent mouse movent despite unmoved joystic
                         value = 0.;
                     }
@@ -183,11 +177,7 @@ fn main() -> std::io::Result<()> {
                 }
 
                 // move mouse
-                let mut rx = (state.rx as f64)/MOVE_DIVISOR;  // todo: move logic
-                if rx.abs() < CLAMP_THRESHOLD { // prevent mouse movent despite unmoved joystic
-                    rx = 0.;
-                }
-                enigo.mouse_move_relative((rx) as i32, 0);
+                enigo.mouse_move_relative((state.rx) as i32, 0);
                 enigo.mouse_move_relative(0, (state.ry) as i32);
 
                 // mouse buttons
@@ -219,11 +209,6 @@ fn main() -> std::io::Result<()> {
                 // scroll
                 let y = (state.y as f64)/32768.;
                 enigo.mouse_scroll_y((y*SCROLL_MUTLIPLIER) as i32);
-
-                // arrow keys defined directly in tetextion for performance reasons
-
-                // TODO: start button to press Meta key
-
             } else {
                 thread::sleep(Duration::from_millis(1));
             }
