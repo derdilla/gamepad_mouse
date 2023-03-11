@@ -2,15 +2,15 @@ use std::io::prelude::*;
 use std::io::{BufReader, Cursor};
 use std::fs::File;
 use std::sync::{Arc, Mutex};
-use std::thread;
+use std::{thread};
 use std::time::{SystemTime, Duration};
 use byteorder::{BigEndian, ReadBytesExt};
 use enigo::*;
 
-static MOVE_DIVISOR: f64 = 1638.4; // = (x/32768)*20 // smaller --> faster
+static MOVE_DIVISOR: f64 = 1638.4; // = (x/32768)*20 // smaller -> faster
 static CLAMP_THRESHOLD: f64 = 0.04;
-
 static SCROLL_MUTLIPLIER: f64 = 1.5;
+static CONTROLLER_NAMEPARTS: [&'static str; 2] = ["gamepad", "controller"];
 
 struct State {
     running: bool,
@@ -22,6 +22,7 @@ struct State {
     rz: i16,
 }
 
+
 fn get_gamepad_handler() -> String {
     // 1. open device file
     // 2. read 2nd line and then evry 10 lines further to get device name. find a name containing 'gamepad' (case insensitive)
@@ -31,8 +32,21 @@ fn get_gamepad_handler() -> String {
     let reader = BufReader::new(f);
 
     let mut lines = reader.lines();
-
-    while !lines.next().unwrap().unwrap().to_lowercase().contains("gamepad") {
+    
+    let mut found_controller = false;
+    while !found_controller {
+        let line = lines.next();
+        if line.is_none() {
+            println!("No controler found! This could be caused by the controllers name not containing any of the words:");
+            println!("{:?}", CONTROLLER_NAMEPARTS);
+            std::process::exit(1);
+        }
+        let controller_name = line.unwrap().unwrap().to_lowercase();
+        for name in CONTROLLER_NAMEPARTS {
+            if controller_name.contains(name) {
+                found_controller = true;
+            }
+        }
     }
 
     let handlers_line = lines.nth(3).unwrap().unwrap();
