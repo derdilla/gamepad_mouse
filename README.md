@@ -1,8 +1,8 @@
 ## Setup
-The controllers name needs to contain the word "gamepad". If you need to change mouse speed or other parameters, you can to recompile it with the constants set.
+The controller's name needs to contain the word "gamepad" or "controller". If you need to change mouse speed, add a word unique to your controllers name or change other parameters, you can to recompile it with the constants on top of the `main.rs` file set.
 
 ## Installation
-Simply run the executable from the latest release on Linux with X11. (Sorry windows and mac users)
+Simply run the executable from the latest release on any Linux distro with X11. (Sorry windows and Mac users)
 
 ### Runtime dependencies
 
