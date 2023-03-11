@@ -20,8 +20,6 @@ struct State {
     ry: f64,
     z: i16,
     rz: i16,
-    tr: bool,
-    tl: bool,
 }
 
 fn get_gamepad_handler() -> String {
@@ -62,8 +60,6 @@ fn main() -> std::io::Result<()> {
         ry: 0.,
         z: 0,
         rz: 0,
-        tr: false,
-        tl: false,
     }));
 
 
@@ -140,15 +136,12 @@ fn main() -> std::io::Result<()> {
                 310 => { // BTN_TL
                     if buf[20] == 1 {
                         enigo.mouse_click(MouseButton::Back);
-                        //enigo.mouse_click(MouseButton::ScrollLeft);
                     }
                 }
                 311 => { // BTN_TR
                     if buf[20] == 1 {
                         enigo.mouse_click(MouseButton::Foreward);
-                        //enigo.mouse_click(MouseButton::ScrollLeft);
                     }
-                    state.tr = buf[20] == 1; // 1 or 0
                 }   
                 314 => { // BTN_SELECT
                     state.running = false;
