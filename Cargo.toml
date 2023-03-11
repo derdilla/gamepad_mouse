@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 byteorder = "1.4.3"
-enigo = "0.0.14"
+enigo = { git = "https://github.com/NobodyForNothing/enigo" }
 
 [[bin]]
 name = "gamepad_mouse"

@@ -138,9 +138,16 @@ fn main() -> std::io::Result<()> {
                     }
                 }
                 310 => { // BTN_TL
-                    state.tl = buf[20] == 1; // 1 or 0
+                    if buf[20] == 1 {
+                        enigo.mouse_click(MouseButton::Back);
+                        //enigo.mouse_click(MouseButton::ScrollLeft);
+                    }
                 }
                 311 => { // BTN_TR
+                    if buf[20] == 1 {
+                        enigo.mouse_click(MouseButton::Foreward);
+                        //enigo.mouse_click(MouseButton::ScrollLeft);
+                    }
                     state.tr = buf[20] == 1; // 1 or 0
                 }   
                 314 => { // BTN_SELECT
@@ -190,21 +197,7 @@ fn main() -> std::io::Result<()> {
                     enigo.mouse_down(MouseButton::Left);
                 } else if state.z > 0 {
                     enigo.mouse_up(MouseButton::Left);
-                }
-                // side buttons
-                /* TODO https://github.com/enigo-rs/enigo/issues/157
-                if state.tl {
-                    enigo.key_down(Key::Raw(0x38)); // back - 8
-                } else {
-                    let c = Key::Raw(0x38);
-                    enigo.key_up(c);
-                }
-                if state.tr {
-                    enigo.key_down(Key::Raw(0x38)); // MOUSE5 - 6
-                } else {
-                    enigo.key_down(Key::Raw(0x38));
-                }
-                */
+                }    
 
                 // scroll
                 let y = (state.y as f64)/32768.;
