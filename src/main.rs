@@ -1,5 +1,7 @@
 mod mouse;
 
+use std::{thread, time::Duration};
+
 use dialoguer::FuzzySelect;
 use enigo::{Enigo, Keyboard, Mouse, Settings};
 use gilrs::{Event, EventType::*, Gamepad, GamepadId, Gilrs};
@@ -120,7 +122,7 @@ fn main() {
         loop {
             //println!("{:?}", &gamepad);
             while let Some(Event {
-                id, event, time, ..
+                id, event, ..
             }) = gilrs.next_event()
             {
                 if id != gamepadid {
@@ -130,6 +132,7 @@ fn main() {
 
                 //println!("{:?} New event: {:?}", time, event);
             }
+            thread::sleep(Duration::from_millis(100))
         }
     }
 }
