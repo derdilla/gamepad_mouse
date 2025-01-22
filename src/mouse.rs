@@ -9,6 +9,7 @@ use enigo::{Enigo, Mouse};
 #[derive(Debug)]
 struct MouseMover {
     max_change_per_milli: f32,
+    mouse_speed_mod: f32,
     last_tick: SystemTime,
     target_vel_x: f32,
     current_vel_x: f32,
@@ -22,6 +23,7 @@ impl MouseMover {
         MouseMover {
             // whatever constant feels good.
             max_change_per_milli: 0.3,
+            mouse_speed_mod: 2.0,
             last_tick: SystemTime::now(),
             target_vel_x: 0.0,
             current_vel_x: 0.0,
@@ -36,8 +38,8 @@ impl MouseMover {
         thread::spawn(move || {
             loop {
                 if let Ok((x, y)) = recv.recv_timeout(Duration::from_nanos(1000)) {
-                    self.target_vel_x = x;
-                    self.target_vel_y = y;
+                    self.target_vel_x = x * self.mouse_speed_mod;
+                    self.target_vel_y = y * self.mouse_speed_mod;
                 }
                 self.tick();
                 thread::sleep(Duration::from_millis(1));

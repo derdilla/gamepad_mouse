@@ -31,8 +31,6 @@ fn select_gamepad(gilrs: &Gilrs) -> Option<(GamepadId, Gamepad)> {
 
 struct ButtonMapper {
     enigo: Enigo,
-    /// Multiplied with values in [0..1] to determine the next relative mouse position.
-    speed_mod: f32,
     mouse_mover: MouseMoverHandle,
     // store the offset of the last knob movement to fix some controllers not returning
     // a definite zero value when letting go.
@@ -45,7 +43,6 @@ impl ButtonMapper {
         let mouse_mover = MouseMoverHandle::get();
         ButtonMapper {
             enigo: Enigo::new(&Settings::default()).unwrap(),
-            speed_mod: 2.0,
             mouse_mover,
             last_x: 0.0,
             last_y: 0.0,
@@ -88,14 +85,14 @@ impl ButtonMapper {
                     v = 0.0;
                 }
                 self.last_x = v;
-                self.mouse_mover.set_target_vel_x(self.speed_mod * v); Ok(()) },
+                self.mouse_mover.set_target_vel_x(v); Ok(()) },
             AxisChanged(gilrs::Axis::LeftStickY, mut v, _) => {
                 if (v.abs() < 0.015)
                     || (v.abs() < 0.05 && v.abs() < self.last_y.abs()) {
                     v = 0.0;
                 }
                 self.last_y = v;
-                self.mouse_mover.set_target_vel_y(-1.0 * self.speed_mod * v); Ok(()) },
+                self.mouse_mover.set_target_vel_y(v); Ok(()) },
             _ => Ok(()),
         };
         if let Err(err) = performed_action {
