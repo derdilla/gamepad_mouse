@@ -7,7 +7,7 @@ use std::{
 use enigo::{Enigo, Mouse};
 
 #[derive(Debug)]
-struct MouseMover {
+pub(crate) struct MouseMover {
     max_change_per_milli: f32,
     mouse_speed_mod: f32,
     last_tick: SystemTime,
@@ -131,19 +131,27 @@ impl MouseMoverHandle {
         )
     }
 
-    pub fn set_target_vel_x(&mut self, x: f32) {
-        self.last_x = x;
-        self.send();
+    pub fn move_x(&mut self, mut x: f32) -> bool {
+        if (x.abs() < 0.005)
+            || (x.abs() < 0.05 && x.abs() < self.last_x.abs()) {
+            x = 0.0;
+        }
+        self.last_x = x*0.6;
+        self.send()
     }
 
-    pub fn set_target_vel_y(&mut self, y: f32) {
-        self.last_y = y;
-        self.send();
+    pub fn move_y(&mut self, mut y: f32) -> bool {
+        if (y.abs() < 0.005)
+            || (y.abs() < 0.05 && y.abs() < self.last_y.abs()) {
+            y = 0.0;
+        }
+        self.last_y = -y*0.6;
+        self.send()
     }
 
-    fn send(&mut self) {
+    fn send(&mut self) -> bool {
         self.sender
             .send((self.last_x, self.last_y))
-            .expect("process ended unexpectedly");
+            .is_ok()
     }
 }
